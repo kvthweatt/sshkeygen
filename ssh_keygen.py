@@ -23,29 +23,29 @@ def generate_ssh_keys(key_size=2048, pv_keyfile=None, pb_keyfile=None, password=
         key_size=key_size,
         backend=default_backend()
     )
-    
+
     # Determine encryption algorithm
     if password:
         encryption_algo = serialization.BestAvailableEncryption(password.encode())
     else:
         encryption_algo = serialization.NoEncryption()
-    
+
     # Serialize private key in PEM format
     private_pem = private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.TraditionalOpenSSL,
         encryption_algorithm=encryption_algo
     )
-    
+
     # Get public key
     public_key = private_key.public_key()
-    
+
     # Serialize public key in PEM format
     public_pem = public_key.public_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo
     )
-    
+
     # Save or display the keys
     if pv_keyfile and pb_keyfile:
         # Save to files
@@ -68,7 +68,7 @@ def generate_ssh_keys(key_size=2048, pv_keyfile=None, pb_keyfile=None, password=
         print("=" * 60)
         print(public_pem.decode('utf-8'))
         print("=" * 60)
-    
+
     return private_pem, public_pem
 
 if __name__ == "__main__":
@@ -78,7 +78,7 @@ if __name__ == "__main__":
     key_size = 2048
     password = None
     use_password = False
-    
+
     if "-h" in sys.argv:
         print("HELP MENU")
         print("Usage: python script.py [options]")
@@ -98,7 +98,7 @@ if __name__ == "__main__":
                 args.remove("")
         else:
             args = args.split(" ")
-        
+
         # Check for password flag first
         if "-pwd" in args:
             use_password = True
@@ -108,7 +108,7 @@ if __name__ == "__main__":
         for arg in args:
             if "=" in arg:
                 nargs.append(arg.split("="))
-        
+
         for narg in nargs:
             lv = narg[0]
             rv = narg[1]
@@ -123,7 +123,7 @@ if __name__ == "__main__":
                 if key_size < 1024:
                     print("Weak key size. Must be >= 1024.")
                     exit()
-        
+
         # Check if only one key file is specified
         if (pv_keyfile is None) != (pb_keyfile is None):
             print("If one key file is specified, so must the other!")
@@ -132,7 +132,7 @@ if __name__ == "__main__":
             elif pb_keyfile is None:
                 print("Public key: File not specified.")
             exit()
-        
+
         # Prompt for password if requested
         if use_password:
             good = False
@@ -146,12 +146,23 @@ if __name__ == "__main__":
                 if len(password) < MIN_PASSWORD_LENGTH:
                     print(f"Password not strong enough ({len(password)}). Minimum: {MIN_PASSWORD_LENGTH}")
                     continue
-                confirm_password = getpass.getpass("Confirm password: ")
+                try:
+                    confirm_password = getpass.getpass("Confirm password: ")
+                except KeyboardInterrupt:
+                    print("\nBye.")
+                    exit()
                 if password != confirm_password:
                     print("Passwords do not match!")
                     continue
                 if not password:
                     print("Password cannot be empty!")
                     continue
-    
+                char_count = {}
+                for char in password:
+                    char_count[char] = char_count.get(char, 0) + 1
+                if char_count[char] >= 3:
+                    print(f"{char} appears in your password 3 or more times. Choose a new password.")
+                    continue
+                else:
+                    good = True
     generate_ssh_keys(key_size=key_size, pv_keyfile=pv_keyfile, pb_keyfile=pb_keyfile, password=password)
