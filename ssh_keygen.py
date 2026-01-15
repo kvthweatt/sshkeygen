@@ -1,9 +1,13 @@
+import sys
+import getpass
+
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
-import sys
 
-def generate_ssh_keys(key_size=2048, pv_keyfile=None, pb_keyfile=None):
+MIN_PASSWORD_LENGTH = 32 # Use passgen.py to get a 32-char password
+
+def generate_ssh_keys(key_size=2048, pv_keyfile=None, pb_keyfile=None, password=None):
     """
     Generate an RSA SSH key pair and display or save them.
     
@@ -11,6 +15,7 @@ def generate_ssh_keys(key_size=2048, pv_keyfile=None, pb_keyfile=None):
         key_size: Size of the RSA key in bits (default: 2048)
         pv_keyfile: Path to save private key file (optional)
         pb_keyfile: Path to save public key file (optional)
+        password: Password to encrypt private key (optional)
     """
     # Generate private key
     private_key = rsa.generate_private_key(
@@ -19,11 +24,17 @@ def generate_ssh_keys(key_size=2048, pv_keyfile=None, pb_keyfile=None):
         backend=default_backend()
     )
     
+    # Determine encryption algorithm
+    if password:
+        encryption_algo = serialization.BestAvailableEncryption(password.encode())
+    else:
+        encryption_algo = serialization.NoEncryption()
+    
     # Serialize private key in PEM format
     private_pem = private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=serialization.NoEncryption()
+        encryption_algorithm=encryption_algo
     )
     
     # Get public key
@@ -65,13 +76,17 @@ if __name__ == "__main__":
     pv_keyfile = None
     pb_keyfile = None
     key_size = 2048
+    password = None
+    use_password = False
     
     if "-h" in sys.argv:
-        print("Usage: python ssh_keygen.py [options]")
+        print("HELP MENU")
+        print("Usage: python script.py [options]")
         print("\nOptions:")
         print("  -pvk=<file>    Specify private key output file")
         print("  -pbk=<file>    Specify public key output file")
         print("  -kl=<size>     Specify key size in bits (default: 2048, min: 1024)")
+        print("  -pwd           Prompt for password to encrypt private key")
         print("  -h             Show this help menu")
         exit()
     else:
@@ -83,6 +98,11 @@ if __name__ == "__main__":
                 args.remove("")
         else:
             args = args.split(" ")
+        
+        # Check for password flag first
+        if "-pwd" in args:
+            use_password = True
+            args.remove("-pwd")
         
         nargs = []
         for arg in args:
@@ -112,5 +132,26 @@ if __name__ == "__main__":
             elif pb_keyfile is None:
                 print("Public key: File not specified.")
             exit()
+        
+        # Prompt for password if requested
+        if use_password:
+            good = False
+            while (good is False):
+                print("CTRL+C to exit loop.")
+                try:
+                    password = getpass.getpass("Enter password to encrypt private key: ")
+                except KeyboardInterrupt:
+                    print("\nBye.")
+                    exit()
+                if len(password) < MIN_PASSWORD_LENGTH:
+                    print(f"Password not strong enough ({len(password)}). Minimum: {MIN_PASSWORD_LENGTH}")
+                    continue
+                confirm_password = getpass.getpass("Confirm password: ")
+                if password != confirm_password:
+                    print("Passwords do not match!")
+                    continue
+                if not password:
+                    print("Password cannot be empty!")
+                    continue
     
-    generate_ssh_keys(key_size=key_size, pv_keyfile=pv_keyfile, pb_keyfile=pb_keyfile)
+    generate_ssh_keys(key_size=key_size, pv_keyfile=pv_keyfile, pb_keyfile=pb_keyfile, password=password)
