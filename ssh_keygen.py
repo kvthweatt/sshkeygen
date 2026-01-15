@@ -160,9 +160,9 @@ if __name__ == "__main__":
                 char_count = {}
                 for char in password:
                     char_count[char] = char_count.get(char, 0) + 1
-                if char_count[char] >= 3:
-                    print(f"{char} appears in your password 3 or more times. Choose a new password.")
-                    continue
+                    if char_count[char] >= 3:
+                        print(f"{char} appears in your password 3 or more times. Choose a new password.")
+                        break
                 else:
                     good = True
     generate_ssh_keys(key_size=key_size, pv_keyfile=pv_keyfile, pb_keyfile=pb_keyfile, password=password)
